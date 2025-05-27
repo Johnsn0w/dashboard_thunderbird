@@ -1,13 +1,15 @@
 import mailbox
-from email.utils import parsedate_to_datetime as parse_dt
+from email.utils import parsedate_to_datetime as parse_to_dt
 from bs4 import BeautifulSoup
 from datetime import datetime as dt, timezone as tz, timedelta as td
 from zoneinfo import ZoneInfo
+from time import sleep
 
 inbox = mailbox.mbox('imap_map_inbox_sample.txt')
 
 dt_str_format = '%H:%M - %d %b'
 
+"""notifications last"""
 def main():
     now = dt.now(tz.utc)
     for email in inbox:
@@ -16,20 +18,19 @@ def main():
             continue
         if email['from'] != "noreply@vistab.co.nz": # skip
             continue     
-        if is_email_older_than_x_hours(email=email, hours=15): # skip
+        if is_email_older_than_x_hours(email=email, hours=30): # skip
             continue
 
-        email_dt = parse_dt(email['date'])
+        email_dt = parse_to_dt(email['date'])
         visitor_name = parse_visitor_name(email)
         nz_dt = utc_to_nz_dt(email_dt)
 
         formatted_arrival_info = f"{visitor_name} - {nz_dt.strftime('%H:%M %d %b')}"
 
         print(formatted_arrival_info)
-        # break
 
 def is_email_older_than_x_hours(*,email, hours):
-    email_dt = parse_dt(email['date'])
+    email_dt = parse_to_dt(email['date'])
     now = dt.now(tz.utc)
     return now - email_dt > td(hours=hours)
 
