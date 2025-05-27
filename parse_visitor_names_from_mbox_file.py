@@ -23,6 +23,7 @@ recent_visitors = {}
 dt_str_format = '%H:%M - %d %b'
 
 def update_recent_visitors_dict():
+    play_notification = False
     recent_visitors.clear()
     inbox = mailbox.mbox(inbox_file)
     now = dt.now(tz.utc)
@@ -32,7 +33,7 @@ def update_recent_visitors_dict():
             continue
         if email['from'] != "noreply@vistab.co.nz": # skip
             continue     
-        if is_email_older_than_x_hours(email=email, hours=33): # skip
+        if is_email_older_than_x_hours(email=email, hours=50): # skip
             continue
         if email['Message-ID'] in recent_visitors: # skip
             break
@@ -49,10 +50,13 @@ def update_recent_visitors_dict():
         recent_visitors[msg_id] = {"visitor_name": visitor_name, "received_dt": nz_dt.strftime('%H:%M')}
 
         if msg_id not in already_processed_msgs:
+            play_notification = True
             already_processed_msgs.add(msg_id)
             with open(msg_id_file, 'wb') as f:
                 pickle.dump(already_processed_msgs, f)
-            playsound("notification.mp3")
+    
+    if play_notification:
+        playsound("notification.mp3")
 
 
 def is_email_older_than_x_hours(*,email, hours):
@@ -91,26 +95,11 @@ def tkinter_main_loop():
 def update_list():
     print("Updating list...")
     update_recent_visitors_dict()
-    visitor_names = ""
-    for msg_id, msg in recent_visitors.items():
-        visitor_names += (
-            f"{msg["visitor_name"]}"
-            f" "
-            f"{msg["received_dt"]}"
-            "\n"
-            )
+    visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
 
-    visitor_names_label.config(text=visitor_names)
+    visitor_names_label.config(text=visitors_list)
     root.after(1000, update_list)  # Re-run every 1000 ms (1 second)
 
-
-"""
-record-like object
-    has properties:
-        datetime
-        visitor_name
-        message-id
-"""
 
 tkinter_main_loop()
 
