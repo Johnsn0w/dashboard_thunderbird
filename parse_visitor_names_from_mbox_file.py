@@ -33,7 +33,7 @@ def update_recent_visitors_dict():
             continue
         if email['from'] != "noreply@vistab.co.nz": # skip
             continue     
-        if is_email_older_than_x_hours(email=email, hours=50): # skip
+        if is_email_older_than_x_hours(email=email, hours=60): # skip
             continue
         if email['Message-ID'] in recent_visitors: # skip
             break
@@ -83,11 +83,38 @@ def parse_visitor_name(email):
 
 
 root = tk.Tk()
-root.title("")
+root.title("Recent Arrivals")
+
+# Configure the root window's grid to allow resizing
+root.grid_rowconfigure(1, weight=1)
+root.grid_columnconfigure(0, weight=1)
+
+# Title Label
 title = tk.Label(root, text="Recent Arrivals", justify='center', font=("Arial", 18))
-title.pack(padx=10, pady=10)
-visitor_names_label = tk.Label(root, text="_", justify='left')
-visitor_names_label.pack(pady=20)
+title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
+
+# Visitor Names Label with custom font
+dynamic_font = font.Font(family="Arial", size=12)
+visitor_names_label = tk.Label(
+    root,
+    text="_",
+    justify='left',
+    anchor='nw',
+    background='grey',
+    font=dynamic_font
+)
+visitor_names_label.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+
+def resize_font(event):
+    # Determine the smaller dimension
+    limiting_dimension = min(event.width, event.height)
+    # Calculate new font size based on that dimension
+    new_size = max(8, int(limiting_dimension / 10))  # Adjust the divisor as needed
+    dynamic_font.configure(size=new_size)
+
+
+visitor_names_label.bind("<Configure>", resize_font)
+
 def tkinter_main_loop():
     root.after(10, update_list)
     root.mainloop()
@@ -96,11 +123,12 @@ def update_list():
     print("Updating list...")
     update_recent_visitors_dict()
     visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
-
     visitor_names_label.config(text=visitors_list)
-    root.after(1000, update_list)  # Re-run every 1000 ms (1 second)
-
+    root.after(1000, update_list)
 
 tkinter_main_loop()
+
+
+
 
 
