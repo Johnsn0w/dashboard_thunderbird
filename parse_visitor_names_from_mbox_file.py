@@ -89,19 +89,18 @@ root.title("Recent Arrivals")
 root.grid_rowconfigure(1, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
-# Title Label
-title = tk.Label(root, text="Recent Arrivals", justify='center', font=("Arial", 18))
+body_font  = font.Font(family="Arial", size=12)
+
+title = tk.Label(root, text="Recent Arrivals", justify='center', font=body_font)
 title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 
-# Visitor Names Label with custom font
-dynamic_font = font.Font(family="Arial", size=12)
 visitor_names_label = tk.Label(
     root,
     text="_",
     justify='left',
     anchor='nw',
     background='grey',
-    font=dynamic_font
+    font=body_font
 )
 visitor_names_label.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
@@ -110,7 +109,7 @@ def resize_font(event):
     limiting_dimension = min(event.width, event.height)
     # Calculate new font size based on that dimension
     new_size = max(8, int(limiting_dimension / 10))  # Adjust the divisor as needed
-    dynamic_font.configure(size=new_size)
+    body_font.configure(size=new_size)
 
 
 visitor_names_label.bind("<Configure>", resize_font)
