@@ -1,7 +1,7 @@
 **
 
-!requirements.txt
+!requirements*
 !*.py
 !.gitignore
 
-test.py
+_*.py

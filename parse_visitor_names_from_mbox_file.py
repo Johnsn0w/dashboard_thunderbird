@@ -7,21 +7,22 @@ from time import sleep
 import tkinter as tk
 from tkinter import font
 from playsound3 import playsound
-import pickle, os
+import pickle, os, sys
+
+inbox_file = 'imap_map_inbox_sample.txt'
+recent_visitors = {}
+
+assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
+
+visitor_list_timeframe_in_hours = 100
 
 msg_id_file = 'msg_ids.pkl'
-if os.path.exists(msg_id_file):
+if os.path.exists(msg_id_file): # load or create file tracking msg ids
     with open(msg_id_file, 'rb') as f:
         already_processed_msgs = pickle.load(f)
 else:
     already_processed_msgs = set()
     
-inbox_file = 'imap_map_inbox_sample.txt'
-
-recent_visitors = {}
-
-dt_str_format = '%H:%M - %d %b'
-
 def update_recent_visitors_dict():
     play_notification = False
     recent_visitors.clear()
@@ -33,7 +34,7 @@ def update_recent_visitors_dict():
             continue
         if email['from'] != "noreply@vistab.co.nz": # skip
             continue     
-        if is_email_older_than_x_hours(email=email, hours=60): # skip
+        if is_email_older_than_x_hours(email=email, hours=visitor_list_timeframe_in_hours): # skip
             continue
         if email['Message-ID'] in recent_visitors: # skip
             break
@@ -84,46 +85,53 @@ def parse_visitor_name(email):
 
 root = tk.Tk()
 root.title("Recent Arrivals")
-
-# Configure the root window's grid to allow resizing
-root.grid_rowconfigure(1, weight=1)
-root.grid_columnconfigure(0, weight=1)
+root.grid_propagate(False)
 
 body_font  = font.Font(family="Arial", size=12)
 
 title = tk.Label(root, text="Recent Arrivals", justify='center', font=body_font)
 title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 
-visitor_names_label = tk.Label(
-    root,
-    text="_",
-    justify='left',
-    anchor='nw',
-    background='grey',
-    font=body_font
-)
-visitor_names_label.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
-def resize_font(event):
-    # Determine the smaller dimension
-    limiting_dimension = min(event.width, event.height)
-    # Calculate new font size based on that dimension
-    new_size = max(8, int(limiting_dimension / 10))  # Adjust the divisor as needed
-    body_font.configure(size=new_size)
+def resize_callback(event: tk.Event):
+    widget = event.widget
+    # filter out all widgets except root window
+    if "." != widget.winfo_pathname(widget.winfo_id()): # skip
+        return
+    
+    print("resizing event. path:", widget.winfo_pathname(widget.winfo_id()))
+    
+    body_font.configure(size=round(event.width * .1))
+    
 
-
-visitor_names_label.bind("<Configure>", resize_font)
+root.bind("<Configure>", resize_callback) 
 
 def tkinter_main_loop():
-    root.after(10, update_list)
+    root.after(10, check_and_update_list)
     root.mainloop()
 
-def update_list():
-    print("Updating list...")
+def check_and_update_list():
+    print("Check for new msgs...")
+    previous_visitors_dict = {**recent_visitors}
     update_recent_visitors_dict()
-    visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
-    visitor_names_label.config(text=visitors_list)
-    root.after(1000, update_list)
+    i = 1
+    if recent_visitors.keys() != previous_visitors_dict.keys(): # skip
+        # visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
+        print("change detected, updating list..")
+
+        for i, msg in enumerate(recent_visitors.values()):
+            i += 1
+            visitor = tk.Label(
+                root,
+                text=msg['visitor_name'],
+                justify='left',
+                anchor='nw',
+                background='grey',
+                font=body_font
+            )
+            visitor.grid(row=i, column=0, padx=0, pady=0, sticky="nsew")
+
+    root.after(1000, check_and_update_list)
 
 tkinter_main_loop()
 
