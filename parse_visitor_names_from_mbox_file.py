@@ -9,12 +9,30 @@ from tkinter import font
 from playsound3 import playsound
 import pickle, os, sys
 
+saved_pos_file = "saved_pos.pkl"
+
+def save_position(_geometry: str):
+    with open(saved_pos_file, 'wb') as f:
+        pickle.dump(_geometry, f)
+    print("save run")
+
+def load_saved_position():
+    global saved_pos
+    if os.path.exists(saved_pos_file): # load or create file tracking msg ids
+        with open(saved_pos_file, 'rb') as f:
+            saved_pos = pickle.load(f)
+    else:
+        print("trace")
+        saved_pos = "+0+0"
+    return saved_pos
+
+
 inbox_file = 'imap_map_inbox_sample.txt'
 recent_visitors = {}
 
 assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
 
-visitor_list_timeframe_in_hours = 100
+visitor_list_timeframe_in_hours = 300
 
 msg_id_file = 'msg_ids.pkl'
 if os.path.exists(msg_id_file): # load or create file tracking msg ids
@@ -87,10 +105,15 @@ root = tk.Tk()
 root.title("Recent Arrivals")
 root.grid_propagate(False)
 
-body_font  = font.Font(family="Arial", size=12)
+root.geometry(load_saved_position())
 
-title = tk.Label(root, text="Recent Arrivals", justify='center', font=body_font)
+visitors_font  = font.Font(family="Arial", size=12)
+title_font     = font.Font(family="Arial", size=12)
+
+title = tk.Label(root, text="Recent Arrivals", justify='center', font=visitors_font)
 title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
+visitors_frame = tk.Frame(root)
+visitors_frame.grid(row=1, column=0)
 
 
 def resize_callback(event: tk.Event):
@@ -99,12 +122,23 @@ def resize_callback(event: tk.Event):
     if "." != widget.winfo_pathname(widget.winfo_id()): # skip
         return
     
-    print("resizing event. path:", widget.winfo_pathname(widget.winfo_id()))
+    # print("resizing event. path:", widget.winfo_pathname(widget.winfo_id()))
     
-    body_font.configure(size=round(event.width * .1))
+    h = round(event.height * .08)
+    w = round(event.width * .08)
+    font_size = min(h, w)
+    
+    print(f"H: {h} W: {w}")
+
+    print(root.geometry())
+
+    visitors_font.configure(size=font_size)
     
 
-root.bind("<Configure>", resize_callback) 
+# root.bind("<Configure>", resize_callback) 
+root.bind("<Configure>", lambda event: [resize_callback(event), save_position(root.geometry())]) 
+# root.bind("<Configure>", save_position(root.geometry()), add='+') 
+root.bind("<Control-c>", lambda _: sys.exit())
 
 def tkinter_main_loop():
     root.after(10, check_and_update_list)
@@ -114,7 +148,7 @@ def check_and_update_list():
     print("Check for new msgs...")
     previous_visitors_dict = {**recent_visitors}
     update_recent_visitors_dict()
-    i = 1
+    i = 0
     if recent_visitors.keys() != previous_visitors_dict.keys(): # skip
         # visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
         print("change detected, updating list..")
@@ -122,12 +156,12 @@ def check_and_update_list():
         for i, msg in enumerate(recent_visitors.values()):
             i += 1
             visitor = tk.Label(
-                root,
+                visitors_frame,
                 text=msg['visitor_name'],
                 justify='left',
                 anchor='nw',
                 background='grey',
-                font=body_font
+                font=visitors_font
             )
             visitor.grid(row=i, column=0, padx=0, pady=0, sticky="nsew")
 
