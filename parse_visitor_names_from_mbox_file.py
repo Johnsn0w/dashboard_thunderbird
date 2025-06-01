@@ -118,13 +118,13 @@ def parse_visitor_name(email):
 
 root = tk.Tk()
 root.title(" ")
+# root.overrideredirect(True) 
+# root.wm_attributes('-fullscreen', 'true') # fullscreen
+root["bg"] = "#d5d2d2"
 root.grid_propagate(False) # unsure on functionality
 root.iconbitmap("blank.ico")
-# print(root.wm_attributes(return_python_dict=True))
-# sys.exit()
-# root.overrideredirect(True)
 
-visitors_frame = tk.Frame(root)
+visitors_frame = tk.Frame(root, background=root["bg"])
 visitors_frame.pack(anchor="center", padx=10)
 
 visitors_body_font  = font.Font(family="Courier New", size=12, weight="bold")
@@ -132,18 +132,18 @@ visitors_title_font = font.Font(family="Courier New", size=12, weight="bold")
 
 style = ttk.Style()
 style.configure("body.TLabel", 
-                # background="red",
                 padding=3,
                 foreground="black",
                 font=visitors_body_font,
-                relief="flat"
+                relief="flat",
+                background=root["bg"]
                 )
 style.configure("title.TLabel", 
-                # background="red",
                 padding=3,
                 foreground="black",
                 font=visitors_title_font,
-                relief="flat"
+                relief="flat",
+                background=root["bg"]
                 )
 
 
@@ -196,7 +196,7 @@ def check_and_update_list():
             timestamp = ttk.Label(
                 visitors_frame,
                 text=msg['timestamp'],
-                style="title.TLabel",
+                style="body.TLabel",
             )
 
             visitor.grid  (row=i, column=0, padx=0, pady=0, sticky="nsew")
