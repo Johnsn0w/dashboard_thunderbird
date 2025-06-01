@@ -4,17 +4,44 @@ from bs4 import BeautifulSoup
 from datetime import datetime as dt, timezone as tz, timedelta as td
 from zoneinfo import ZoneInfo
 from time import sleep
-import tkinter as tk
 from tkinter import font
 from playsound3 import playsound
-import pickle, os, sys
+import pickle, os, sys, subprocess
 
-saved_pos_file = "saved_pos.pkl"
+import tkinter as tk
+from pathlib import Path
+import tkinter.ttk as ttk
 
-def save_position(_geometry: str):
+saved_pos_file = Path("./temp/saved_pos.pkl")
+msg_id_file = Path('./temp/msg_ids.pkl')
+inbox_file = 'imap_map_inbox_sample.txt'
+recent_visitors = {}
+
+visitor_list_timeframe_in_hours = 300
+
+if os.path.exists(msg_id_file): # load or create file tracking msg ids
+    with open(msg_id_file, 'rb') as f:
+        already_processed_msgs = pickle.load(f)
+else:
+    already_processed_msgs = set()
+
+assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
+
+def reload_window(*, event=None, root):
+    # some of te extra logic here is just to prevent vs-code closing all subprocesses after root subprocess is closed.
+    processes = [] #
+    python = sys.executable
+    script = os.path.abspath(__file__)
+    proc = subprocess.Popen([python, script])
+    processes.append(proc) #
+    root.destroy()
+
+    for p in processes: #
+        p.wait() #
+
+def save_window_geometry(_geometry: str):
     with open(saved_pos_file, 'wb') as f:
         pickle.dump(_geometry, f)
-    print("save run")
 
 def load_saved_position():
     global saved_pos
@@ -26,21 +53,6 @@ def load_saved_position():
         saved_pos = "+0+0"
     return saved_pos
 
-
-inbox_file = 'imap_map_inbox_sample.txt'
-recent_visitors = {}
-
-assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
-
-visitor_list_timeframe_in_hours = 300
-
-msg_id_file = 'msg_ids.pkl'
-if os.path.exists(msg_id_file): # load or create file tracking msg ids
-    with open(msg_id_file, 'rb') as f:
-        already_processed_msgs = pickle.load(f)
-else:
-    already_processed_msgs = set()
-    
 def update_recent_visitors_dict():
     play_notification = False
     recent_visitors.clear()
@@ -51,13 +63,13 @@ def update_recent_visitors_dict():
             # print("Multipart email detected.")
             continue
         if email['from'] != "noreply@vistab.co.nz": # skip
-            continue     
+            continue
         if is_email_older_than_x_hours(email=email, hours=visitor_list_timeframe_in_hours): # skip
             continue
         if email['Message-ID'] in recent_visitors: # skip
             break
-        
-        
+
+
         msg_id = email['Message-ID']
 
         email_dt = parse_to_dt(email['date'])
@@ -73,10 +85,9 @@ def update_recent_visitors_dict():
             already_processed_msgs.add(msg_id)
             with open(msg_id_file, 'wb') as f:
                 pickle.dump(already_processed_msgs, f)
-    
+
     if play_notification:
         playsound("notification.mp3")
-
 
 def is_email_older_than_x_hours(*,email, hours):
     email_dt = parse_to_dt(email['date'])
@@ -100,10 +111,13 @@ def parse_visitor_name(email):
         visitor_name = None  # or raise an error/log a warning
     return visitor_name
 
-
 root = tk.Tk()
 root.title("Recent Arrivals")
-root.grid_propagate(False)
+root.grid_propagate(False) # unsure on functionality
+
+root.bind('<Control-r>', lambda event: reload_window(root=root) )
+root.bind("<Configure>", lambda event: [resize_callback(event), save_window_geometry(root.geometry())])
+root.bind("<Control-c>", lambda _: sys.exit())
 
 root.geometry(load_saved_position())
 
@@ -115,42 +129,28 @@ title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 visitors_frame = tk.Frame(root)
 visitors_frame.grid(row=1, column=0)
 
-
 def resize_callback(event: tk.Event):
     widget = event.widget
-    # filter out all widgets except root window
-    if "." != widget.winfo_pathname(widget.winfo_id()): # skip
+
+    if "." != widget.winfo_pathname(widget.winfo_id()): # skip non-root widgets
         return
-    
-    # print("resizing event. path:", widget.winfo_pathname(widget.winfo_id()))
-    
+
     h = round(event.height * .08)
     w = round(event.width * .08)
     font_size = min(h, w)
-    
-    print(f"H: {h} W: {w}")
-
-    print(root.geometry())
 
     visitors_font.configure(size=font_size)
-    
-
-# root.bind("<Configure>", resize_callback) 
-root.bind("<Configure>", lambda event: [resize_callback(event), save_position(root.geometry())]) 
-# root.bind("<Configure>", save_position(root.geometry()), add='+') 
-root.bind("<Control-c>", lambda _: sys.exit())
 
 def tkinter_main_loop():
     root.after(10, check_and_update_list)
     root.mainloop()
 
 def check_and_update_list():
-    print("Check for new msgs...")
+    # print("Checking for new msgs...")
     previous_visitors_dict = {**recent_visitors}
     update_recent_visitors_dict()
     i = 0
-    if recent_visitors.keys() != previous_visitors_dict.keys(): # skip
-        # visitors_list = '\n'.join([msg['visitor_name'] + " " + msg['received_dt'] for msg in recent_visitors.values()])
+    if recent_visitors.keys() != previous_visitors_dict.keys():
         print("change detected, updating list..")
 
         for i, msg in enumerate(recent_visitors.values()):
