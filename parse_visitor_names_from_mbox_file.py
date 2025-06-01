@@ -18,6 +18,9 @@ inbox_file = 'imap_map_inbox_sample.txt'
 recent_visitors = {}
 
 visitor_list_timeframe_in_hours = 300
+font_geometry_size_ratio = .05
+header_font_size = 1.2
+body_font_size   = 1
 
 if os.path.exists(msg_id_file): # load or create file tracking msg ids
     with open(msg_id_file, 'rb') as f:
@@ -75,10 +78,12 @@ def update_recent_visitors_dict():
         email_dt = parse_to_dt(email['date'])
         visitor_name = parse_visitor_name(email)
         nz_dt = utc_to_nz_dt(email_dt)
+        nz_dt = nz_dt.strftime('%H:%M')
+        nz_dt = nz_dt if nz_dt[0] != "0" else nz_dt[1:]
 
         msg_id = email['Message-ID']
 
-        recent_visitors[msg_id] = {"visitor_name": visitor_name, "received_dt": nz_dt.strftime('%H:%M')}
+        recent_visitors[msg_id] = {"visitor_name": visitor_name, "timestamp": nz_dt}
 
         if msg_id not in already_processed_msgs:
             play_notification = True
@@ -94,7 +99,7 @@ def is_email_older_than_x_hours(*,email, hours):
     now = dt.now(tz.utc)
     return now - email_dt > td(hours=hours)
 
-def utc_to_nz_dt(utc_dt):
+def utc_to_nz_dt(utc_dt) -> str:
     return utc_dt.replace(tzinfo=tz.utc).astimezone(ZoneInfo("Pacific/Auckland"))
 
 def parse_visitor_name(email):
@@ -112,8 +117,39 @@ def parse_visitor_name(email):
     return visitor_name
 
 root = tk.Tk()
-root.title("Recent Arrivals")
+root.title(" ")
 root.grid_propagate(False) # unsure on functionality
+root.iconbitmap("blank.ico")
+# print(root.wm_attributes(return_python_dict=True))
+# sys.exit()
+# root.overrideredirect(True)
+
+visitors_frame = tk.Frame(root)
+visitors_frame.pack(anchor="center", padx=10)
+
+visitors_body_font  = font.Font(family="Courier New", size=12, weight="bold")
+visitors_title_font = font.Font(family="Courier New", size=12, weight="bold")
+
+style = ttk.Style()
+style.configure("body.TLabel", 
+                # background="red",
+                padding=3,
+                foreground="black",
+                font=visitors_body_font,
+                relief="flat"
+                )
+style.configure("title.TLabel", 
+                # background="red",
+                padding=3,
+                foreground="black",
+                font=visitors_title_font,
+                relief="flat"
+                )
+
+
+title = ttk.Label(visitors_frame, text="Recent Arrivals", justify='center', style="title.TLabel")
+title.grid(row=0, column=0, padx=10, pady=10, sticky="n", columnspan=2)
+
 
 root.bind('<Control-r>', lambda event: reload_window(root=root) )
 root.bind("<Configure>", lambda event: [resize_callback(event), save_window_geometry(root.geometry())])
@@ -121,13 +157,6 @@ root.bind("<Control-c>", lambda _: sys.exit())
 
 root.geometry(load_saved_position())
 
-visitors_font  = font.Font(family="Arial", size=12)
-title_font     = font.Font(family="Arial", size=12)
-
-title = tk.Label(root, text="Recent Arrivals", justify='center', font=visitors_font)
-title.grid(row=0, column=0, padx=10, pady=10, sticky="n")
-visitors_frame = tk.Frame(root)
-visitors_frame.grid(row=1, column=0)
 
 def resize_callback(event: tk.Event):
     widget = event.widget
@@ -135,11 +164,15 @@ def resize_callback(event: tk.Event):
     if "." != widget.winfo_pathname(widget.winfo_id()): # skip non-root widgets
         return
 
-    h = round(event.height * .08)
-    w = round(event.width * .08)
+    h = round(event.height * font_geometry_size_ratio)
+    w = round(event.width  * font_geometry_size_ratio)
     font_size = min(h, w)
 
-    visitors_font.configure(size=font_size)
+    title = round(font_size * header_font_size)
+    body  = round(font_size * body_font_size)
+
+    visitors_body_font  .configure(size=body)
+    visitors_title_font.configure(size=title)
 
 def tkinter_main_loop():
     root.after(10, check_and_update_list)
@@ -155,15 +188,19 @@ def check_and_update_list():
 
         for i, msg in enumerate(recent_visitors.values()):
             i += 1
-            visitor = tk.Label(
+            visitor = ttk.Label(
                 visitors_frame,
                 text=msg['visitor_name'],
-                justify='left',
-                anchor='nw',
-                background='grey',
-                font=visitors_font
+                style="body.TLabel"
+                )
+            timestamp = ttk.Label(
+                visitors_frame,
+                text=msg['timestamp'],
+                style="title.TLabel",
             )
-            visitor.grid(row=i, column=0, padx=0, pady=0, sticky="nsew")
+
+            visitor.grid  (row=i, column=0, padx=0, pady=0, sticky="nsew")
+            timestamp.grid(row=i, column=1, padx=0, pady=0, sticky="nse")
 
     root.after(1000, check_and_update_list)
 
