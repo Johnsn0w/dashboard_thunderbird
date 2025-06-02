@@ -17,7 +17,7 @@ msg_id_file = Path('./temp/msg_ids.pkl')
 inbox_file = 'imap_map_inbox_sample.txt'
 recent_visitors = {}
 
-visitor_list_timeframe_in_hours = 300
+visitor_list_timeframe_in_hours = 200
 font_geometry_size_ratio = .05
 header_font_size = 1.2
 body_font_size   = 1
@@ -125,7 +125,7 @@ root.grid_propagate(False) # unsure on functionality
 root.iconbitmap("blank.ico")
 
 visitors_frame = tk.Frame(root, background=root["bg"])
-visitors_frame.pack(anchor="center", padx=10)
+visitors_frame.pack(anchor="center", padx=50, fill="x")
 
 visitors_body_font  = font.Font(family="Courier New", size=12, weight="bold")
 visitors_title_font = font.Font(family="Courier New", size=12, weight="bold")
@@ -200,8 +200,9 @@ def check_and_update_list():
             )
 
             visitor.grid  (row=i, column=0, padx=0, pady=0, sticky="nsew")
-            timestamp.grid(row=i, column=1, padx=0, pady=0, sticky="nse")
-
+            timestamp.grid(row=i, column=1, padx=0, pady=0, sticky="e")
+    visitors_frame.grid_columnconfigure(0, weight=1)
+    visitors_frame.grid_columnconfigure(1, weight=1)
     root.after(1000, check_and_update_list)
 
 tkinter_main_loop()
