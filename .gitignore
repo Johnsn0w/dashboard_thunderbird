@@ -3,5 +3,7 @@
 !requirements*
 !*.py
 !.gitignore
+!notification.mp3
+!blank.ico
 
 _*.py
