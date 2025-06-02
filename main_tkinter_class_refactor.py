@@ -1,0 +1,209 @@
+import mailbox
+from email.utils import parsedate_to_datetime as parse_to_dt
+from bs4 import BeautifulSoup
+from datetime import datetime as dt, timezone as tz, timedelta as td
+from zoneinfo import ZoneInfo
+from time import sleep
+from tkinter import font
+from playsound3 import playsound
+import pickle, os, sys, subprocess
+
+import tkinter as tk
+from pathlib import Path
+import tkinter.ttk as ttk
+
+
+def main():
+    app = Application()
+    app.mainloop()
+
+
+
+visitor_list_timeframe_in_hours = 200
+font_geometry_size_ratio = .05
+header_font_size = 1.2
+body_font_size   = 1
+
+
+
+class Application(tk.Tk): # instead of creating root instance, we are the root instance
+
+    def __init__(self):
+        super().__init__() # instantiate tkinter instance
+        self.saved_pos_file = Path("./temp/saved_pos.pkl")
+        self.bind('<Control-r>', lambda event: self.reload_window() )
+        self.bind("<Configure>", lambda event: [self.save_window_geometry(self.geometry())])
+        self.bind("<Control-c>", lambda _: sys.exit())
+        self.geometry(self.load_saved_position())
+        self.title(" ")
+        self.iconbitmap("blank.ico")
+
+        self.v_frame = VisitorsFrame(self)
+        self.v_frame.pack(anchor="center", padx=50, fill="x")
+    
+    def reload_window(self):
+        # some of te extra logic here is just to prevent vs-code closing all subprocesses after root subprocess is closed.
+        self.processes = [] #
+        python = sys.executable
+        script = os.path.abspath(__file__)
+        proc = subprocess.Popen([python, script])
+        self.processes.append(proc) #
+        self.destroy()
+
+        for p in self.processes: #
+            p.wait() #
+
+    def save_window_geometry(self, _geometry: str):
+        with open(self.saved_pos_file, 'wb') as f:
+            pickle.dump(_geometry, f)
+
+    def load_saved_position(self):
+        if os.path.exists(self.saved_pos_file): # load or create file tracking msg ids
+            with open(self.saved_pos_file, 'rb') as f:
+                saved_pos = pickle.load(f)
+        else:
+            print("trace")
+            saved_pos = "+0+0"
+        return saved_pos
+
+
+
+
+
+class VisitorsFrame(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.bind("<Configure>", lambda event: [self.resize_callback(event)])
+
+        self.visitors_body_font  = font.Font(family="Courier New", size=12, weight="bold")
+        self.visitors_title_font = font.Font(family="Courier New", size=12, weight="bold")
+
+        self.recent_visitors = {}
+        title = ttk.Label(self, text="Recent Arrivals", justify='center')#, style="title.TLabel")
+        title.grid(row=0, column=0, padx=10, pady=10, sticky="n", columnspan=2)
+
+        msg_id_file = Path('./temp/msg_ids.pkl')
+        if os.path.exists(msg_id_file): # load or create file tracking msg ids
+            with open(msg_id_file, 'rb') as f:
+                self.already_processed_msgs = pickle.load(f)
+        else:
+            self.already_processed_msgs = set()
+
+        self.after(10, self.check_and_update_list)
+
+
+    def update_recent_visitors_dict(self):
+        inbox_file = 'imap_map_inbox_sample.txt'
+        assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
+        play_notification = False
+        self.recent_visitors.clear()
+        inbox = mailbox.mbox(inbox_file)
+        now = dt.now(tz.utc)
+        for email in inbox:
+            if email.is_multipart():  # skip
+                # print("Multipart email detected.")
+                continue
+            if email['from'] != "noreply@vistab.co.nz": # skip
+                continue
+            if self.is_email_older_than_x_hours(email=email, hours=visitor_list_timeframe_in_hours): # skip
+                continue
+            if email['Message-ID'] in self.recent_visitors: # skip
+                break
+
+            msg_id = email['Message-ID']
+
+            email_dt = parse_to_dt(email['date'])
+            visitor_name = self.parse_visitor_name(email)
+            nz_dt = self.utc_to_nz_dt(email_dt)
+            nz_dt = nz_dt.strftime('%H:%M')
+            nz_dt = nz_dt if nz_dt[0] != "0" else nz_dt[1:]
+
+            msg_id = email['Message-ID']
+
+            self.recent_visitors[msg_id] = {"visitor_name": visitor_name, "timestamp": nz_dt}
+
+            if msg_id not in self.already_processed_msgs:
+                play_notification = True
+                self.already_processed_msgs.add(msg_id)
+                with open(self.msg_id_file, 'wb') as f:
+                    pickle.dump(self.already_processed_msgs, f)
+
+        if play_notification:
+            playsound("notification.mp3")
+
+
+    def check_and_update_list(self):
+        print("Checking for new msgs...")
+        previous_visitors_dict = {**self.recent_visitors}
+        self.update_recent_visitors_dict()
+        i = 0
+        if self.recent_visitors.keys() != previous_visitors_dict.keys():
+            print("change detected, updating list..")
+            
+            for widget in self.winfo_children()[1:]:
+                widget.destroy()
+
+            for i, msg in enumerate(self.recent_visitors.values()):
+                i += 1
+                visitor = ttk.Label(
+                    self,
+                    text=msg['visitor_name'],
+                    style="body.TLabel"
+                    )
+                timestamp = ttk.Label(
+                    self,
+                    text=msg['timestamp'],
+                    style="body.TLabel",
+                )
+
+                visitor.grid  (row=i, column=0, padx=0, pady=0, sticky="nsew")
+                timestamp.grid(row=i, column=1, padx=0, pady=0, sticky="e")
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.after(1000, self.check_and_update_list)
+
+    def is_email_older_than_x_hours(self, email, hours):
+        email_dt = parse_to_dt(email['date'])
+        now = dt.now(tz.utc)
+        return now - email_dt > td(hours=hours)
+
+    def parse_visitor_name(self, email):
+        body = email.get_payload(decode=True).decode('utf-8')
+        soup = BeautifulSoup(body, 'html.parser')
+
+        # Find the visitor name based on text content
+        text_lines = soup.get_text(separator="\n")
+        for line in text_lines.splitlines():
+            if 'Visitor Name:' in line:
+                visitor_name = line.split('Visitor Name:')[1].strip()
+                break
+        else:
+            visitor_name = None  # or raise an error/log a warning
+        return visitor_name
+
+    def utc_to_nz_dt(self, utc_dt) -> str:
+        return utc_dt.replace(tzinfo=tz.utc).astimezone(ZoneInfo("Pacific/Auckland"))
+    
+    def resize_callback(self, event: tk.Event):
+        widget = event.widget
+
+        if "." != widget.winfo_pathname(widget.winfo_id()): # skip non-root widgets
+            return
+
+        h = round(event.height * font_geometry_size_ratio)
+        w = round(event.width  * font_geometry_size_ratio)
+        font_size = min(h, w)
+
+        title = round(font_size * header_font_size)
+        body  = round(font_size * body_font_size)
+
+        self.visitors_body_font .configure(size=body)
+        self.visitors_title_font.configure(size=title)
+
+main()
+sys.exit()
+
+
+
+
+
