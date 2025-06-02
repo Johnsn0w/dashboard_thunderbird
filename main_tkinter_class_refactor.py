@@ -58,10 +58,6 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
             saved_pos = "+0+0"
         return saved_pos
 
-
-
-
-
 class VisitorsFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
@@ -108,7 +104,6 @@ class VisitorsFrame(ttk.Frame):
 
         self.after(10, self.check_and_update_list)
 
-
     def update_recent_visitors_dict(self):
         inbox_file = 'imap_map_inbox_sample.txt'
         assert os.path.exists(inbox_file), f"assertion error, inbox file not found"
@@ -146,7 +141,6 @@ class VisitorsFrame(ttk.Frame):
 
         if play_notification:
             playsound("notification.mp3")
-
 
     def check_and_update_list(self):
         # print("Checking for new msgs...")
