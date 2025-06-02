@@ -186,6 +186,10 @@ def check_and_update_list():
     if recent_visitors.keys() != previous_visitors_dict.keys():
         print("change detected, updating list..")
 
+        for widget in visitors_frame.winfo_children()[1:]:
+            widget.destroy()
+
+
         for i, msg in enumerate(recent_visitors.values()):
             i += 1
             visitor = ttk.Label(
