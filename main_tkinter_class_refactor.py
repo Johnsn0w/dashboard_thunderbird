@@ -32,7 +32,14 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
         self.iconbitmap("blank.ico")
 
         self.v_frame = VisitorsFrame(self)
-        self.v_frame.pack(anchor="center", padx=50, fill="both", expand=True)
+        self.v_frame.grid(row=0, column=0, sticky="nesw", padx=10, pady=10)
+        self.grid_columnconfigure(0,weight=1)
+        self.grid_rowconfigure   (0,weight=1)
+        
+        # self.v_frame2 = VisitorsFrame(self)
+        # self.v_frame2.grid(row=0, column=1, sticky="nesw", padx=10, pady=10)
+        # self.grid_columnconfigure(1,weight=1)
+        # self.grid_rowconfigure   (0,weight=1)
     
     def reload_window(self):
         # some of te extra logic here is just to prevent vs-code closing all subprocesses after root subprocess is closed.
@@ -197,6 +204,9 @@ class VisitorsFrame(ttk.Frame):
     def resize_callback(self, event: tk.Event):
         h = round(event.height * self.font_geometry_size_ratio)
         w = round(event.width  * self.font_geometry_size_ratio)
+        print(f"{h=}")
+        print(f"{w=}")
+        # print(f"{}")
         font_size = min(h, w)
 
         title = round(font_size * self.header_font_size)
