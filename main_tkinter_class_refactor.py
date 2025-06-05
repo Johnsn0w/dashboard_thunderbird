@@ -4,14 +4,15 @@ from bs4 import BeautifulSoup
 from datetime import datetime as dt, timezone as tz, timedelta as td
 from zoneinfo import ZoneInfo
 from time import sleep
-from tkinter import font
 from playsound3 import playsound
 import pickle, os, sys, subprocess, json
 from pathlib import Path
 import pandas as pd
+import math
 
 import tkinter as tk
 import tkinter.ttk as ttk
+from tkinter import font
 
 
 def main():
@@ -70,7 +71,7 @@ class VisitorsFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         
-        self.visitor_list_timeframe_in_hours = 200
+        self.visitor_list_timeframe_in_hours = 48
         self.font_geometry_size_ratio = .05
         self.header_font_size = 1.2
         self.body_font_size   = 1
@@ -224,6 +225,7 @@ class FeedbackFrame(ttk.Frame):
         self.inbox_path = 'imap_map_inbox_sample.txt'
 
         self.update_data_from_inbox()
+        self.feedback_stats = self.process_data_to_stats()
     
     def load_csv(self):
         if os.path.exists(self.feedback_filepath): # load or create file tracking msg ids
@@ -260,7 +262,104 @@ class FeedbackFrame(ttk.Frame):
             
     def save_df_to_disk(self):
         self.feedback_df.to_csv(self.feedback_filepath)
-            
+
+    def process_data_to_stats(self):
+        df = self.feedback_df
+
+        # region ##### process_df_to_specified_date_range ################
+        today_start = dt.today().replace(hour=0)
+        today_end = dt.today().replace(hour=23)
+        
+
+        selected_date_range = "Last 7 days"
+        date_ranges = {
+            "Last 7 days": {
+                "start": today_start - td(days=7),
+                "end": today_end
+            },
+            "Last 30 days": {
+                "start": today_start - td(days=30),
+                "end": today_end
+            },
+            "Last 365 days": {
+                "start": today_start - td(days=365),
+                "end": today_end
+            },
+            "This week": {
+                "start": today_start - td(days=today_start.weekday()),
+                "end": today_end
+            },
+            "This month": {
+                "start": today_start.replace(day=1),
+                "end": today_end
+            },
+            "This year": {
+                "start": today_start.replace(month=1, day=1),
+                "end": today_end
+            },
+            "Previous week": {
+                "start": today_start - td(days=today_start.weekday() + 7),
+                "end": today_end - td(days=today_end.weekday() + 1)
+            },
+            "Previous month": {
+                "start": (today_start.replace(day=1) - td(days=1)).replace(day=1),
+                "end": today_end.replace(day=1) - td(days=1)
+            },
+            "Previous year": {
+                "start": today_start.replace(month=1, day=1, year=today_start.year - 1),
+                "end": today_end.replace(month=1, day=1) - td(days=1)
+            }
+        }
+
+        # Convert Timestamp column to datetime
+        df['datetime'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%dT%H:%M:%S.%f')
+        # Define date range
+        start_date  = date_ranges[selected_date_range]['start']
+        end_date    = date_ranges[selected_date_range]['end']
+        print(f"Date Range: {selected_date_range}\nStart:      {start_date}\nEnd:        {end_date}")
+
+        # Filter DataFrame based on selected date range
+        df = df[(df['datetime'] >= start_date) & (df['datetime'] <= end_date)]
+
+        # endregion ##### process_df_to_specified_date_range ###############
+
+        ability_before_col = 'learning_score_before'
+        df[ability_before_col] = pd.to_numeric(
+            df[ability_before_col], errors='coerce')
+        avg_ability_before = df[ability_before_col].mean()
+
+        ability_after_col = 'learning_score_after'
+        df[ability_after_col] = pd.to_numeric(
+            df[ability_after_col], errors='coerce')
+        avg_ability_after = df[ability_after_col].mean()
+
+        learning_improvement = round(
+            (avg_ability_after - avg_ability_before) * 10, 0)
+        learning_improvement = learning_improvement if not math.isnan(learning_improvement) else 0
+
+        # region get average satisfaction score as string `avg_satisfaction`
+        satisfaction_col = 'satisfaction'
+        df[satisfaction_col] = pd.to_numeric(df[satisfaction_col], errors='coerce')
+        avg_satisfaction = str(round(df[satisfaction_col].mean(), 1))
+        # print(f'avg satisfaction sore: {avg_satisfaction}')
+        # endregion
+
+        print(f"{avg_satisfaction=}")
+        print(f"{float(avg_ability_before)=}")
+        print(f"{float(avg_ability_after)=}")
+        print(f"{float(learning_improvement)=}")
+
+
+        record_count = str(df.shape[0])
+
+        processed_data = {
+        "avg_satisfaction": avg_satisfaction,
+        "record_count": record_count,
+        "learning_improvement": learning_improvement,
+        "selected_date_range": selected_date_range
+        }
+
+        return processed_data            
 
 
 
