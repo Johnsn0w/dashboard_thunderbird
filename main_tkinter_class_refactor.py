@@ -6,10 +6,11 @@ from zoneinfo import ZoneInfo
 from time import sleep
 from tkinter import font
 from playsound3 import playsound
-import pickle, os, sys, subprocess
+import pickle, os, sys, subprocess, json
+from pathlib import Path
+import pandas as pd
 
 import tkinter as tk
-from pathlib import Path
 import tkinter.ttk as ttk
 
 
@@ -214,6 +215,56 @@ class VisitorsFrame(ttk.Frame):
 
         self.visitors_body_font .configure(size=body)
         self.visitors_title_font.configure(size=title)
+
+class FeedbackFrame(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.feedback_filepath = './feedback_stats.csv'
+        self.feedback_df = self.load_csv()
+        self.inbox_path = 'imap_map_inbox_sample.txt'
+
+        self.update_data_from_inbox()
+    
+    def load_csv(self):
+        if os.path.exists(self.feedback_filepath): # load or create file tracking msg ids
+            feedback_stats_df = pd.read_csv(self.feedback_filepath)
+        else:
+            feedback_stats_df = pd.DataFrame(columns=['timestamp', 'satisfaction', 'learning_score_before', 'learning_score_after', 'message_id'])
+        return feedback_stats_df
+
+    def update_data_from_inbox(self) -> list | None:
+        inbox = mailbox.mbox(self.inbox_path)
+        df = None
+        for email in inbox:
+            if email.is_multipart():
+                continue
+            if "---powerautomate---" not in email["subject"]:
+                continue
+            if self.feedback_df['message_id'].isin([email['Message-ID']]).any():
+                continue
+            
+            payload = email.get_payload()
+            soup = BeautifulSoup(payload, 'html.parser')
+            email_body = soup.get_text()
+            
+            data = email_body.split("---data_start---")[1]
+            data = data.split("---data_end---")[0]
+            data = json.loads(data)
+            data['message_id'] = email['Message-ID']
+            
+            self.feedback_df.loc[len(self.feedback_df)] = data
+            
+            self.save_df_to_disk()
+
+        print(self.feedback_df)
+            
+    def save_df_to_disk(self):
+        self.feedback_df.to_csv(self.feedback_filepath)
+            
+
+
+
+
 
 main()
 sys.exit()
