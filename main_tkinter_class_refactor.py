@@ -29,6 +29,7 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
         self.geometry(self.load_saved_position())
         
         self.bind('<Control-r>', lambda event: self.reload_window() )
+        self.bind('<F5>', lambda event: self.reload_window() )
         self.bind("<Configure>", lambda event: [self.save_window_geometry(self.geometry())])
         self.bind("<Control-c>", lambda _: sys.exit())
         self.bind("<Configure>", lambda event: self.resize_callback(event))
@@ -44,16 +45,21 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
         self.feedback_frame = FeedbackFrame(self)
         self.feedback_frame.grid(row=0, column=1, sticky="nesw", padx=10, pady=10)
         self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure   (0, weight=1)
 
         self.font_geometry_size_ratio = .025
-        self.header_font_size = 1.2
-        self.body_font_size   = 1
+        self.header_font_size = 1.5
+        self.body_font_size   = 1.2
+        self.feedback_count_font_size = 4
 
         self.visitors_body_font  = font.Font(family="Courier New", size=12, weight="bold")
         self.visitors_title_font = font.Font(family="Courier New", size=12, weight="bold")
+        self.feedback_count_font = font.Font(family="Courier New", size=12, weight="bold")
 
         STYLE = ttk.Style()
         STYLE.configure("VisitorsFrame.TFrame", background=self["bg"])
+        # STYLE.configure("standard.TFrame", background=self["bg"])
+        STYLE.configure("standard.TFrame", background="red")
         STYLE.configure("body.TLabel", 
                         padding=3,
                         foreground="black",
@@ -65,6 +71,13 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
                         padding=3,
                         foreground="black",
                         font=self.visitors_title_font,
+                        relief="flat",
+                        background=self["bg"]
+                        )
+        STYLE.configure("feedback_count.TLabel", 
+                        padding=3,
+                        foreground="black",
+                        font=self.feedback_count_font,
                         relief="flat",
                         background=self["bg"]
                         )
@@ -105,8 +118,11 @@ class Application(tk.Tk): # instead of creating root instance, we are the root i
         title = round(font_size * self.header_font_size)
         body  = round(font_size * self.body_font_size)
 
+        feedback_count = round(font_size * self.feedback_count_font_size)
+
         self.visitors_body_font .configure(size=body)
         self.visitors_title_font.configure(size=title)
+        self.feedback_count_font.configure(size=feedback_count)
 
 
 class VisitorsFrame(ttk.Frame):
@@ -232,8 +248,14 @@ class FeedbackFrame(ttk.Frame):
         self.update_data_from_inbox()
         self.feedback_stats = self.process_data_to_stats()
         
+        self.configure(style="standard.TFrame")
+
         title = ttk.Label(self, text="Feedback Stats", justify='center', style="title.TLabel")
         title.grid(row=0, column=0, padx=10, pady=10, sticky="n", columnspan=2)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.feedback_count = ttk.Label(self, text="x", justify='center', style="feedback_count.TLabel")
+        self.feedback_count.grid(row=1, column=0, padx=10, pady=10, sticky="n")#, columnspan=2)
     
     def load_csv(self):
         if os.path.exists(self.feedback_filepath): # load or create file tracking msg ids
